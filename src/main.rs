@@ -10,6 +10,7 @@ fn main() -> rltk::BError {
     gs.wd.register::<Position>();
     gs.wd.register::<Renderable>();
     gs.wd.register::<LeftMover>();
+    gs.wd.register::<Player>();
 
     gs.wd
         .create_entity()
@@ -19,6 +20,7 @@ fn main() -> rltk::BError {
             fg: RGB::named(rltk::BLUE),
             bg: RGB::named(rltk::WHITE),
         })
+        .with(Player {})
         .build();
 
     (0..9).for_each(|x| {
@@ -69,6 +71,7 @@ impl GameState for State {
     fn tick(&mut self, ctx: &mut Rltk) {
         ctx.cls();
 
+        player_input(self, ctx);
         self.run_systems();
 
         let positions = self.wd.read_storage::<Position>();
@@ -94,5 +97,38 @@ impl<'a> System<'a> for LeftWalker {
                 pos.x = 79;
             }
         })
+    }
+}
+
+#[derive(Component, Debug)]
+struct Player {}
+
+fn move_player(dx: i32, dy: i32, wd: &mut World) {
+    let mut poss = wd.write_storage::<Position>();
+    let mut players = wd.write_storage::<Player>();
+
+    (&mut players, &mut poss).join().for_each(|(_, pos)| {
+        pos.x = min(79, max(0, pos.x + dx));
+        pos.y = min(49, max(0, pos.y + dy));
+    });
+}
+
+fn player_input(gs: &mut State, ctx: &mut Rltk) {
+    ctx.key
+        .map(|key| map_move(&key))
+        .flatten()
+        .iter()
+        .for_each(|(x, y)| {
+            move_player(*x, *y, &mut gs.wd);
+        });
+}
+
+fn map_move(key: &VirtualKeyCode) -> Option<(i32, i32)> {
+    match key {
+        VirtualKeyCode::Left => Some((-1, 0)),
+        VirtualKeyCode::Right => Some((1, 0)),
+        VirtualKeyCode::Up => Some((0, -1)),
+        VirtualKeyCode::Down => Some((0, 1)),
+        _ => None,
     }
 }
